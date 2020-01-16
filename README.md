@@ -28,3 +28,8 @@ ABS_PATH = r'file:\\C:\Users\ADMIN\PycharmProjects\simple-is-the-best\{}'
 
 B2. Chạy project
 
+## Ảnh màn hình
+- Music rank
+![](res/1.png)
+- Website rank
+![](res/2.png)
