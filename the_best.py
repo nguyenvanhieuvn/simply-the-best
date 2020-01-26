@@ -81,35 +81,44 @@ from re import findall, finditer, MULTILINE, DOTALL
 
 ##### DEVELOP YOUR SOLUTION HERE #####
 ABS_PATH = r'file:\\C:\Users\ADMIN\PycharmProjects\simple-is-the-best\{}'
+
+# Hàm lấy thời gian hiện tại ở định dạng dd/mm/yyyy
 def get_today_date():
     return datetime.today().strftime('%d-%m-%Y')
 
 
+# Hàm tìm file cũ nhất trong một thư mục
 def find_oldest_file(dir_path, file_extension='.csv'):
     files = [os.path.join(dir_path, x) for x in os.listdir(dir_path) if x.endswith(file_extension)]
     oldest_file = min(files, key=os.path.getctime)
     return oldest_file
 
-
+# Hàm in ra thông điệp, kèm theo thời gian lúc in ra ở format yyyy-mm-dd HH:MM:SS
 def log(message):
     print(strftime("%Y-%m-%d %H:%M:%S", gmtime()), ':', message)
 
 
+# Class này crawl dữ liệu của website thành file <date>.html
 class WebCrawler:
     def __init__(self, url, save_path):
         self.url = url
         self.save_path = save_path
         self.get()
 
+    # Hàm crawl dữ liệu đây
     def get(self):
         log('Download data from ' + self.url)
+        # Download 
         response = urlopen(self.url)
+        # Lấy dữ liệu
         data = response.read()  # a `bytes` object
         html = data.decode('utf-8')  # a `str`; this step can't be used if data is binary
+        # Lưu ra file
         with open(self.save_path, 'w', encoding='utf8') as fp:
             fp.write(html)
 
 
+# Định nghĩa class Website có các thuộc tính cần thiết
 class Website:
     def __init__(self):
         self.rank = None
@@ -119,6 +128,7 @@ class Website:
         self.search_percent = None
         self.site_linking = None
 
+    # Hiển thị các thuộc tính (ko dùng)
     def show(self):
         print('Rank:', self.rank)
         print('Site:', self.site)
@@ -128,6 +138,7 @@ class Website:
         print('Linking Sites:', self.site_linking)
 
 
+# Định nghĩa class
 class VietNamWebsiteRanking:
     """
     Quy trình: Crawl html => parse => lưu csv => đọc data từ csv
@@ -147,28 +158,39 @@ class VietNamWebsiteRanking:
         self.current_csv_file = os.path.join(save_dir, get_today_date()) + ".csv"
         # Nếu chưa có file html thì tải về
         if not os.path.exists(self.current_html_file):
+            # Nếu chưa có thư mục save_dir thì tạo mới
             if not os.path.exists(save_dir):
                 os.mkdir(save_dir)
+            # Download dữ liệu từ web,
             WebCrawler(url, self.current_html_file)
+            # Parse dữ liệu từ file HTML
             self.current_sites_rank = self.parse_html()
+            # Lưu vào file CSV
             self.to_csv()
+            # Xuất ra file .html để hiển thị lên trình duyệt
             self.export()
         # Đọc current sites ranking
         self.current_sites_rank = self.read_csv(self.current_csv_file)
         # Đọc previous ranking
         self.oldest_file = find_oldest_file(save_dir, file_extension='.csv')
+        # Nếu dữ liệu previous trùng với dữ liệu mới crawl => chưa có dữ liệu cũ => thông báo 1 tiếng
         if self.oldest_file == self.current_csv_file:
             log('Oh, there is no previous ranking log!')
+        # Còn nếu có rồi thì đọc lên thôi
         self.previous_sites_rank = self.read_csv(self.oldest_file)
 
+    # Hàm đọc/ parse dữ liệu từ file HTML => lấy top 10
     def parse_html(self, top=10):
         log('Parse data from {} file.'.format(self.current_html_file))
+        # ĐỌc dữ liệu từ file html & xóa dòng trắng, xóa dấu cách thừa ở đầu & cuối => lưu ra list
         lines = [x.strip() for x in open(self.current_html_file, encoding='utf8').read().splitlines() if
                  len(x.strip()) > 0]
+        # Chuyển list về str
         html = '\n'.join(lines)
+        # 
         term = "<div class=\"td\">{}</div>"
 
-        # get top 10
+        # get top 10, lưu thành 10 đối tượng VietNamWebsiteRank
         top_items = []
         for i in range(top):
             search_result = re.search(
@@ -185,6 +207,7 @@ class VietNamWebsiteRanking:
             top_items.append(website)
         return top_items
 
+    # Hàm xuất ra file csv
     def to_csv(self):
         log('Save data to {} file'.format(self.current_csv_file))
         with open(self.current_csv_file, 'w', encoding='utf8') as fp:
@@ -197,7 +220,7 @@ class VietNamWebsiteRanking:
                     website.search_percent,
                     website.site_linking
                 ))
-
+    # Hàm đọc file csv
     def read_csv(self, csv_file):
         log('Read data from {} file'.format(csv_file))
         if not os.path.exists(csv_file):
@@ -220,13 +243,19 @@ class VietNamWebsiteRanking:
             exit(0)
         return top_sites
 
+    # Hàm xuất ra file html để view lên trình duyệt
     def export(self):
+        # Đọc file html template ra
         text = open('res/template.html', encoding='utf8').read()
+        # thay thế bằng ngày hôm nay
         text = re.sub('{date}', get_today_date(), text)
+        # Thay đường dẫn ảnh
         text = re.sub('{image}', '../res/website.png', text)
+        # Tạo dòng tiêu đề cho bảng
         data = '<tr>{}</tr>'.format('<th>#</th><th>Site</th><th>Time on Site'
                                     '</th><th>Views Per Visitor</th><th>Search Percent</th>'
                                     '<th>Count Linking Site</th>')
+        # Tạo các dòng dữ liệu
         for i, item in enumerate(self.current_sites_rank):
             data += ("<tr>"
                      + "<td>{}</td>".format(i + 1)
@@ -236,11 +265,15 @@ class VietNamWebsiteRanking:
                      + "<td>{}</td>".format(item.search_percent)
                      + "<td>{}</td>".format(item.site_linking)
                      + "</tr>")
+        # Chèn dữ liệu vào
         text = re.sub('{data}', data, text)
+        # Chèn url nguồn vào
         text = re.sub('{source}', 'https://www.alexa.com/topsites/countries/VN', text)
+        # Lưu lại ra file export .html
         with open('achieves/export_web_' + get_today_date() + ".html", 'w', encoding='utf8') as fp:
             fp.write(text)
 
+# Phần Music ranking tương tự với website ranking nhé. Chỉ khác ở chỗ Music ít thuộc tính hơn Website
 
 class Music:
     def __init__(self):
@@ -356,56 +389,67 @@ class VietNamMusicRanking:
 
 
 if __name__ == '__main__':
+    # Tạo thư mục lưu file export nếu chưa có
     if not os.path.exists('achieves'):
         os.mkdir('achieves')
+    # tạo đối tượng websiterank
     website_rank = VietNamWebsiteRanking('https://www.alexa.com/topsites/countries/VN', 'VietNam_Website_Ranking')
     # for web in r.current_sites_rank:
     #     web.show()
     #     print()
+    # Tạo đối tượng musicrank
     music_rank = VietNamMusicRanking('https://www.nhaccuatui.com/bai-hat/top-20.nhac-viet.html',
                                      'VietNam_Music_Ranking')
     # for web in r.current_musics_rank:
     #     web.show()
     #     print()
+    # Bắt đầu phần giao diện
+    # Tạo mới 1 cửa số window
     window = Tk()
+    # set kích thước
     window.geometry('400x300')
+    # set tiêu đề
     window.title("Best Then and Now")
-    # Thêm label
+    # Thêm label: hiển thị văn bản vào cửa số window
     lbl = Label(window, text="Simply The Best", font=("Arial Bold", 25))
     lbl.configure(anchor=CENTER)
     lbl.pack()
-
+    # Thêm ảnh
     canvas = Canvas(window, width=128, height=128, borderwidth=2, relief="groove")
     canvas.place(bordermode=OUTSIDE, x=20, y=70)
     img = PhotoImage(file="res/like.png")
     canvas.create_image(0, 0, anchor=NW, image=img)
-
+    # Thêm label
     lbl = Label(window, text="VietNam Website Rank", font=("Aria Bold", 15))
     lbl.place(x=170, y=70)
-
+    # Thêm option (2 cái nút lựa chọn của Website Rank)
     rank_option = IntVar()
     rad1 = Radiobutton(window, text='Previous', value=1, variable=rank_option)
     rad2 = Radiobutton(window, text='Current', value=2, variable=rank_option)
     rad1.place(x=200, y=100)
     rad2.place(x=280, y=100)
-
+    # Thêm label nữa
     lbl = Label(window, text="VietNam Music Rank", font=("Aria Bold", 15))
     lbl.place(x=170, y=140)
-
+    # Thêm option (2 cái nút lựa chọn của Music Rank)
     rad1 = Radiobutton(window, text='Previous', value=3, variable=rank_option)
     rad2 = Radiobutton(window, text='Current', value=4, variable=rank_option)
     rad1.place(x=200, y=180)
     rad2.place(x=280, y=180)
 
 
+    # Hàm kiểm tra xem người dùng lựa chọn option nào => trả về tiêu đề, hình ảnh và dữ liệu tương ứng
     def get_value_for_new_window():
         values = {}
         option = rank_option.get()
+        # Nếu là 1 hoặc 2 => chọn website ranking
         if option == 1 or option == 2:
             values['title'] = '{} VietNam Website ranking'.format('Previous' if option == 1 else 'Current')
             values['image'] = 'res/website.png'
+            # Nếu là 1 thì là chọn previous, 2 là current
             values['items'] = [x.site for x in website_rank.previous_sites_rank] if option == 1 else [x.site for x in
                                                                                                       website_rank.current_sites_rank]
+        # Option là 3,4 thì là Music rank
         elif option > 2:
             values['title'] = '{} VietNam Music ranking'.format('Previous' if option == 3 else 'Current')
             values['image'] = 'res/music.png'
@@ -414,10 +458,12 @@ if __name__ == '__main__':
         return values
 
 
+    # Sự kiện nhấn button Preview
     def preview_clicked():
         values = get_value_for_new_window()
         if not values:
             return
+        # Tạo mới cửa sổ window con
         viewer = Toplevel(window)
         viewer.geometry('500x600')
         viewer.title(values['title'])
@@ -430,17 +476,19 @@ if __name__ == '__main__':
         global img1
         img1 = PhotoImage(file=values['image'])
         cv.create_image(0, 0, anchor=NW, image=img1)
+        # Tạo các label dữ liệu
         for i, item in enumerate(values['items']):
             label = Label(viewer, text='{}. {}'.format(i + 1, item), font=("Arial Bold", 13), wraplength=300)
             label.place(x=200, y=80 + i * 50)
 
-
+    # Sự kiện export
     def export_click():
         values = get_value_for_new_window()
         if not values:
             return
         path = ''
         option = rank_option.get()
+        # Nếu là previous website ranking thì mở file tương ứng, thay thế tiêu đề rồi lưu lại
         if option == 1:
             path = 'achieves/export_web_{}.html'.format(website_rank.oldest_file.split('\\')[-1][:-4])
             text = open(path, encoding='utf8').read()
@@ -448,6 +496,7 @@ if __name__ == '__main__':
             text = re.sub('<h2>[^<]+</h2>', '<h2>{}</h2>'.format(values['title']), text)
             with open(path, 'w', encoding='utf8') as fp:
                 fp.write(text)
+        # current website rank
         elif option == 2:
             path = 'achieves/export_web_{}'.format(website_rank.current_html_file.split('\\')[-1])
             text = open(path, encoding='utf8').read()
@@ -455,6 +504,7 @@ if __name__ == '__main__':
             text = re.sub('<h2>[^<]+</h2>', '<h2>{}</h2>'.format(values['title']), text)
             with open(path, 'w', encoding='utf8') as fp:
                 fp.write(text)
+        # previous music rank
         elif option == 3:
             path = 'achieves/export_music_{}.html'.format(music_rank.oldest_file.split('\\')[-1][:-4])
             text = open(path, encoding='utf8').read()
@@ -463,6 +513,7 @@ if __name__ == '__main__':
             with open(path, 'w',
                       encoding='utf8') as fp:
                 fp.write(text)
+        # current music rank
         elif option == 4:
             path = 'achieves/export_music_{}'.format(music_rank.current_html_file.split('\\')[-1])
             text = open(path, encoding='utf8').read()
@@ -470,12 +521,13 @@ if __name__ == '__main__':
             text = re.sub('<h2>[^<]+</h2>', '<h2>{}</h2>'.format(values['title']), text)
             with open(path, 'w', encoding='utf8') as fp:
                 fp.write(text)
+        # Mở lên bằng trình duyệt
         webbrowser.open(ABS_PATH.format(path))
 
-
+    # Tạo các button và sự kiện của nó
     btn_preview = Button(window, text="Preview", command=preview_clicked)
     btn_export = Button(window, text="Export", command=export_click)
     btn_preview.place(x=60, y=240, width=100, height=40)
     btn_export.place(x=230, y=240, width=100, height=40)
-
+    # Chạy chương trình
     window.mainloop()
